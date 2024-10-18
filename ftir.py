@@ -62,7 +62,7 @@ def interArrayToSpectra2D(posIn,opticSig,discardPhase = True, discardDC = True, 
     else:
         window = 1
     apodized = av*window
-    apodized = np.concatenate((apodized,np.zeros((nbRow, nbCol, len(apodized)*(paddingFactor-1)))),2)
+    apodized = np.concatenate((apodized,np.zeros((nbRow, nbCol, len(apodized[0,0])*(paddingFactor-1)))),2)
     if shiftMaxToZero:
         apodized = np.roll(apodized, -np.argmax(np.abs(apodized)),2)
     if discardPhase:
