@@ -6,13 +6,39 @@ Created on Mon Oct 21 17:17:35 2024
 """
 
 import numpy as np
-import matplotlib.pyplot as plt
 import scipy.ndimage
 import gwyfile
 
 
 
 def extractLine(array, x1,y1,x2,y2, width = 0):
+    """
+    Extract a line profile in `array`, averaged over a given width around the line.
+    Uses interpolation for non integer coordinates
+
+    Parameters
+    ----------
+    array : 2D numpy array
+        Data
+    x1 : float
+        x coordinate of the starting position (in px)
+    y1 : float
+        y coordinate of the starting position (in px)
+    x2 : float
+        x coordinate of the end position (in px)
+    y2 : float
+        y coordinate of the end position (in px)
+    width : float, optional
+        width of the line for averaging. The default is 0.
+
+    Returns
+    -------
+    y : TYPE
+        DESCRIPTION.
+    avProfile : TYPE
+        DESCRIPTION.
+
+    """
     L = np.sqrt((x2-x1)**2+(y2-y1)**2)
     x = np.linspace(-width/2,width/2,int(np.ceil(width)+1))
     y = np.linspace(0,L,int(np.ceil(L)+1))
@@ -26,13 +52,31 @@ def extractLine(array, x1,y1,x2,y2, width = 0):
     mesh = mesh + [x1, y1]
     mesh = np.reshape(mesh,(len(y),len(x),2))
     mesh = np.moveaxis(mesh,-1,0)
-    profile = scipy.ndimage.map_coordinates(sig.T,mesh)
+    profile = scipy.ndimage.map_coordinates(array.T,mesh)
     # plt.figure()
     # plt.imshow(np.abs(profile))
     avProfile = np.mean(profile,1)
     return y, avProfile
 
 def getOpticSig(obj, harm, backScan = False):
+    """
+    Extract a specific optical channel from a gwyfile object as a complex valued array
+    (Use gwyfile.load("yourFile.gwy") to construct the object)
+
+    Parameters
+    ----------
+    obj : gwyfile object
+    harm : int
+        demodulation harmonic
+    backScan : bool, optional
+        Extract the return scan if True. The default is False.
+
+    Returns
+    -------
+    TYPE
+        2D numpy array of complex valued signal from the gwyfile at the specified harmonic.
+
+    """
     channels = gwyfile.util.get_datafields(obj)
     backStr = "R-" if backScan else ""
     ampChan = channels[backStr+"O"+str(harm)+"A raw"]
@@ -41,36 +85,42 @@ def getOpticSig(obj, harm, backScan = False):
     return amp*np.exp(1j*phase)
 
 def getRealDim(obj):
+    """
+    Extract the real physical width and height of a SNOM image from a gwyfile object
+
+    Parameters
+    ----------
+    obj : gwyfile object
+
+    Returns
+    -------
+    float
+        width of the picture
+    float
+        height of the picture
+
+    """
     channels = gwyfile.util.get_datafields(obj)
     Zchan = channels["Z C"]
     return Zchan.xreal, Zchan.yreal
 
 def getOffset(obj):
+    """
+    Extract the coordinates of the top left corner of the picture
+
+    Parameters
+    ----------
+    obj : gwyfile object
+
+    Returns
+    -------
+    float
+        x coordinate.
+    float
+        y coordinate.
+
+    """
     channels = gwyfile.util.get_datafields(obj)
     Zchan = channels["Z C"]
     return Zchan.xoff, Zchan.yoff
 
-filename = "2024-10-22 125814 PH antennaIgor-highRes.gwy"
-obj = gwyfile.load(filename)
-sig = getOpticSig(obj, 3)
-width, height = getRealDim(obj)
-
-scale = height/len(sig)
-
-plt.figure()
-plt.imshow(np.abs(sig))
-
-# x1, prof1 = extractLine(sig, 20, 465, 76, 465, width = 15)
-# x2, prof2 = extractLine(sig, 76, 465, 135, 400, width = 15)
-# x3, prof3 = extractLine(sig, 135, 400, 133, 110, width = 15)
-
-# x = np.concatenate((x1,x2+x1[-1],x3+x1[-1]+x2[-1])) * scale
-# profile = np.concatenate((prof1,prof2,prof3))
-
-# plt.figure()
-# plt.plot(x,np.abs(profile))
-
-# plt.figure()
-# plt.plot(x,np.unwrap(np.angle(profile)))
-# plt.plot(x,3*np.ones(len(x)))
-# plt.plot(x,(3+2*np.pi)*np.ones(len(x)))
