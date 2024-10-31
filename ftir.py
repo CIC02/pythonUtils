@@ -12,7 +12,7 @@ import csv
 import re
 import numpy as np
 import pandas as pd
-
+import miscUtil
 
 
 j = 1j
@@ -167,13 +167,17 @@ def interArrayToSpectra2D(posIn,opticSig,discardPhase = True, discardDC = True, 
         Averaged spectrum for each position on the 2D surface
 
     """
-    pos = posIn[0,0,0,:]
-    step = pos[1]-pos[0]
+    pos = np.mean(posIn,axis=(0,1,2))
+    step = (pos[-1]-pos[0])/(len(pos)-1)
     av = np.mean(opticSig,2)
     nbRow = len(av)
     nbCol = len(av[0])
     if discardPhase:
-        av = np.transpose(np.transpose(av) * np.transpose(np.exp(-j*(np.angle(np.mean(av,2))))))
+        #av = np.transpose(np.transpose(av) * np.transpose(np.exp(-j*(np.angle(np.mean(av,2))))))
+        # av = np.transpose(np.transpose(av) * np.transpose(np.exp(-j*miscUtil.dataAngle(av.T))))
+        for row in av:
+            for spec in row:
+                spec *= np.exp(-j*miscUtil.dataAngle(spec))
     if discardDC:
         av = np.transpose( np.transpose(av) - np.transpose(np.mean(av,2)))
     if windowF != None:
@@ -211,23 +215,23 @@ def loadInterferograms2D(filename, harm):
         Optical signal
 
     """
-    regex = re.compile(r".*Interferometer.*\t(?P<center>(\d+\.\d+))\t(?P<distance>(\d+\.\d+)).*")
-    distance = 0
-    center = 0
+    # regex = re.compile(r".*Interferometer.*\t(?P<center>(\d+\.\d+))\t(?P<distance>(\d+\.\d+)).*")
+    # distance = 0
+    # center = 0
     with open(filename,newline='') as f:
         rdr = csv.DictReader(filter(lambda row: row[0]!='#', f),delimiter='\t')
         data = []
         for row in rdr:
             data.append(row)
-        f.seek(0)
-        line = f.readline()
-        while line != '':
-            parts = re.match(regex,line)
-            if parts != None:
-                distance = float(parts.groupdict()["distance"])*1e-6
-                center = float(parts.groupdict()["center"])*1e-6
-                break
-            line = f.readline()
+        # f.seek(0)
+        # line = f.readline()
+        # while line != '':
+        #     parts = re.match(regex,line)
+        #     if parts != None:
+        #         distance = float(parts.groupdict()["distance"])*1e-6
+        #         center = float(parts.groupdict()["center"])*1e-6
+        #         break
+        #     line = f.readline()
     data = pd.DataFrame(data).to_dict(orient="list")
     data = {x.replace(' ', ''): v for x, v in data.items()}
     nbRun = int(data['Run'][-1]) + 1
@@ -235,14 +239,16 @@ def loadInterferograms2D(filename, harm):
     nbCol = int(data['Column'][-1]) + 1
     runLength = int(len(data['Row'])/(nbRun*nbRow*nbCol))
     depth = np.asarray(data['Depth'],dtype=float)
+    pos = np.asarray(data['M'],dtype=float)
     phase = np.asarray(data['O'+str(harm)+'P'],dtype=float)
     amp = np.asarray(data['O'+str(harm)+'A'],dtype=float)
     opticSig = amp * np.exp(1j*phase)
     
     depth = depth.reshape([nbRow, nbCol, nbRun, runLength])
     opticSig = opticSig.reshape([nbRow, nbCol, nbRun, runLength])
+    pos = pos.reshape([nbRow, nbCol, nbRun, runLength])
     
-    pos = depth * distance/len(depth[0,0,0]) + center-distance/2
+    #pos = depth * distance/len(depth[0,0,0]) + center-distance/2
     
     return pos, opticSig
 
@@ -304,3 +310,60 @@ def extractScanArea(filename):
                 break
             line = f.readline()
     return width, height
+
+
+def extractWavenumberScaling(filename):
+    """
+    Extract the wavenumber scaling from the header of a interferogram or spectra file
+    
+    Parameters
+    ----------
+    filename : str
+        path of the input file
+
+    Returns
+    -------
+    scaling: float
+        wavenumber scaling
+    """
+    regex = re.compile(r".*Wavenumber Scaling.*\t(?P<X>(\d+\.\d+)).*")
+    with open(filename,newline='') as f:
+        line = f.readline()
+        while line != '':
+            parts = re.match(regex,line)
+            if parts != None:
+                scaling = float(parts.groupdict()["X"])
+                break
+            line = f.readline()
+    return scaling
+
+def extractInterCenterDistance(filename):
+    """
+    Extract the interferometer center and distance from the header of a interferogram file
+    
+    Parameters
+    ----------
+    filename : str
+        path of the input file
+
+    Returns
+    -------
+    center: float
+        Interferometer center
+    distance: float
+        Interferometer distance
+    """
+    regex = re.compile(r".*Interferometer.*\t(?P<center>(\d+\.\d+))\t(?P<distance>(\d+\.\d+)).*")
+    distance = 0
+    center = 0
+    with open(filename,newline='') as f:
+        f.seek(0)
+        line = f.readline()
+        while line != '':
+            parts = re.match(regex,line)
+            if parts != None:
+                distance = float(parts.groupdict()["distance"])*1e-6
+                center = float(parts.groupdict()["center"])*1e-6
+                break
+            line = f.readline()
+    return center, distance

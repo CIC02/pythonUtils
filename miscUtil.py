@@ -33,10 +33,10 @@ def extractLine(array, x1,y1,x2,y2, width = 0):
 
     Returns
     -------
-    y : TYPE
-        DESCRIPTION.
-    avProfile : TYPE
-        DESCRIPTION.
+    y : 1D array
+        position along the line.
+    avProfile : 1D array
+        profile.
 
     """
     L = np.sqrt((x2-x1)**2+(y2-y1)**2)
@@ -58,6 +58,42 @@ def extractLine(array, x1,y1,x2,y2, width = 0):
     avProfile = np.mean(profile,1)
     return y, avProfile
 
+def dataAngle(x, y = None):
+    """
+    Return the angle of the best fit line for the array of points (x,y), or the array x in the complex plane.
+
+    Parameters
+    ----------
+    x : 1D array of float or complex
+        x coordinates, or complexe coordinate of the points to fit.
+    y : 1D array og float, optional
+        y coordinates of the points to fit. If not provided, x will be treated as a complex number array. The default is None.
+
+    Returns
+    -------
+    angle : float
+        Angle of the best fit line in radians.
+
+    """
+    if y == None:
+        xx = np.real(x)
+        yy = np.imag(x)
+    else:
+        xx = x
+        yy = y
+    if np.min(xx) == np.max(xx):        # Data is perfectly vertical
+        return np.pi/2
+    if np.min(yy) == np.max(yy):        # Data is perfectly hozizontal
+        return 0
+    regressHor = scipy.stats.linregress(xx,yy)
+    regressVer = scipy.stats.linregress(yy,xx)
+    if regressHor.stderr < regressVer.stderr:
+        angle = np.arctan(regressHor.slope)
+    else:
+        angle = np.pi/2 - np.arctan(regressVer.slope)
+    return angle
+
+
 def getOpticSig(obj, harm, backScan = False):
     """
     Extract a specific optical channel from a gwyfile object as a complex valued array
@@ -65,7 +101,9 @@ def getOpticSig(obj, harm, backScan = False):
 
     Parameters
     ----------
+        
     obj : gwyfile object
+        
     harm : int
         demodulation harmonic
     backScan : bool, optional
