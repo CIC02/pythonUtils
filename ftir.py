@@ -19,9 +19,9 @@ j = 1j
 
 def loadSpectra(filename, harm):
     """
-    Deprecated: Extracting the data from the interferograms file is better
     Load a spectrum txt file from a FTIR measurement at a single position
-    
+    Warning: The data processing parameters used in the neaspec software to convert the interferograms into spectra are not accessible.
+    Use the interferogram data for more control over the process.
 
     Parameters
     ----------
@@ -36,16 +36,47 @@ def loadSpectra(filename, harm):
         wavenumbers, complex valued spectrum
 
     """
+    wavenumber, field = loadSpectra2D(filename, harm)
+    return wavenumber[0,0,:], field[0,0,:]
+
+def loadSpectra2D(filename, harm):
+    """
+    Load a 2 dimensional array of spectra from a spectra.txt file
+    Warning: The data processing parameters used in the neaspec software to convert the interferograms into spectra are not accessible.
+    Use the interferogram data for more control over the process.
+    
+
+    Parameters
+    ----------
+    filename : str
+        Path of the txt file
+    harm : int
+        Demodulation harmonic to extract
+
+    Returns
+    -------
+    2 3D numpy arrays:
+        wavenumbers, complex valued spectra
+
+    """
     with open(filename,newline='') as f:
         rdr = csv.DictReader(filter(lambda row: row[0]!='#', f),delimiter='\t')
         data = []
         for row in rdr:
             data.append(row)
     data = pd.DataFrame(data).to_dict(orient="list")
+    nbRow = int(data['Row'][-1]) + 1
+    nbCol = int(data['Column'][-1]) + 1
+    nbWN = int(data['Omega'][-1]) + 1
     wavenumber = np.asarray(data['Wavenumber'],dtype=float)
     phase = np.asarray(data['O'+str(harm)+'P'],dtype=float)
     amp = np.asarray(data['O'+str(harm)+'A'],dtype=float)
-    return wavenumber, amp * np.exp(1j*phase)
+    
+    field = amp * np.exp(1j*phase)
+    
+    wavenumber = np.reshape(wavenumber, [nbRow, nbCol, nbWN])
+    field = np.reshape(field, [nbRow, nbCol, nbWN])
+    return wavenumber, field
 
 def loadInterferograms(filename, harm):
     """
@@ -168,7 +199,8 @@ def interArrayToSpectra2D(posIn,opticSig,discardPhase = True, discardDC = True, 
 
     """
     pos = np.mean(posIn,axis=(0,1,2))
-    step = (pos[-1]-pos[0])/(len(pos)-1)
+    #step = (pos[-1]-pos[0])/(len(pos)-1)
+    step = (pos[-1]-pos[int(len(pos)/2)])/(len(pos) - int(len(pos)/2)-1) #Average the step over the second half of data (first few points are not always equally spaced)
     av = np.mean(opticSig,2)
     nbRow = len(av)
     nbCol = len(av[0])
