@@ -8,7 +8,6 @@ Set of tools to read from Neaspec nano-FTIR data
 
 """
 
-import csv
 import re
 import numpy as np
 import pandas as pd
@@ -59,12 +58,8 @@ def loadSpectra2D(filename, harm):
         wavenumbers, complex valued spectra
 
     """
-    with open(filename,newline='') as f:
-        rdr = csv.DictReader(filter(lambda row: row[0]!='#', f),delimiter='\t')
-        data = []
-        for row in rdr:
-            data.append(row)
-    data = pd.DataFrame(data).to_dict(orient="list")
+    data = pd.read_csv(filename, comment = "#", delimiter='\t')
+    data = data.to_dict(orient="list")
     nbRow = int(data['Row'][-1]) + 1
     nbCol = int(data['Column'][-1]) + 1
     nbWN = int(data['Omega'][-1]) + 1
@@ -206,7 +201,6 @@ def interArrayToSpectra2D(posIn,opticSig,discardPhase = True, discardDC = True, 
     nbCol = len(av[0])
     if discardPhase:
         #av = np.transpose(np.transpose(av) * np.transpose(np.exp(-j*(np.angle(np.mean(av,2))))))
-        # av = np.transpose(np.transpose(av) * np.transpose(np.exp(-j*miscUtil.dataAngle(av.T))))
         for row in av:
             for spec in row:
                 spec *= np.exp(-j*miscUtil.dataAngle(spec))
@@ -250,11 +244,6 @@ def loadInterferograms2D(filename, harm):
     # regex = re.compile(r".*Interferometer.*\t(?P<center>(\d+\.\d+))\t(?P<distance>(\d+\.\d+)).*")
     # distance = 0
     # center = 0
-    with open(filename,newline='') as f:
-        rdr = csv.DictReader(filter(lambda row: row[0]!='#', f),delimiter='\t')
-        data = []
-        for row in rdr:
-            data.append(row)
         # f.seek(0)
         # line = f.readline()
         # while line != '':
@@ -264,7 +253,8 @@ def loadInterferograms2D(filename, harm):
         #         center = float(parts.groupdict()["center"])*1e-6
         #         break
         #     line = f.readline()
-    data = pd.DataFrame(data).to_dict(orient="list")
+    data = pd.read_csv(filename, comment = "#", delimiter='\t')
+    data = data.to_dict(orient="list")
     data = {x.replace(' ', ''): v for x, v in data.items()}
     nbRun = int(data['Run'][-1]) + 1
     nbRow = int(data['Row'][-1]) + 1
@@ -279,10 +269,10 @@ def loadInterferograms2D(filename, harm):
     depth = depth.reshape([nbRow, nbCol, nbRun, runLength])
     opticSig = opticSig.reshape([nbRow, nbCol, nbRun, runLength])
     pos = pos.reshape([nbRow, nbCol, nbRun, runLength])
-    
-    #pos = depth * distance/len(depth[0,0,0]) + center-distance/2
-    
+    #pos = depth * distance/len(depth[0,0,0]) + center-distance/2   
     return pos, opticSig
+
+
 
 def loadSpectraFromInter2D(filename, harm, **kwargs):
     """
