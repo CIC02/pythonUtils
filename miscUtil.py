@@ -117,9 +117,10 @@ def getOpticSig(obj, harm, backScan = False):
     """
     channels = gwyfile.util.get_datafields(obj)
     backStr = "R-" if backScan else ""
-    ampChan = channels[backStr+"O"+str(harm)+"A raw"]
+    rawStr = " raw" if "O0A raw" in channels else "" 
+    ampChan = channels[backStr+"O"+str(harm)+"A" + rawStr]
     amp = ampChan.data
-    phase = channels[backStr+"O"+str(harm)+"P raw"].data
+    phase = channels[backStr+"O"+str(harm)+"P" + rawStr].data
     return amp*np.exp(1j*phase)
 
 def getRealDim(obj):
@@ -139,7 +140,8 @@ def getRealDim(obj):
 
     """
     channels = gwyfile.util.get_datafields(obj)
-    Zchan = channels["Z C"]
+    key = "Z C" if "Z C" in channels else "Z"
+    Zchan = channels[key]
     return Zchan.xreal, Zchan.yreal
 
 def getOffset(obj):
@@ -159,6 +161,7 @@ def getOffset(obj):
 
     """
     channels = gwyfile.util.get_datafields(obj)
-    Zchan = channels["Z C"]
+    key = "Z C" if "Z C" in channels else "Z"
+    Zchan = channels[key]
     return Zchan.xoff, Zchan.yoff
 
