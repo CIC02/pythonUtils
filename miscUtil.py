@@ -90,7 +90,7 @@ def dataAngle(x, y = None):
     if regressHor.stderr < regressVer.stderr:
         angle = np.arctan(regressHor.slope)
     else:
-        angle = np.pi/2 - np.arctan(regressVer.slope)
+        angle = np.arctan(1/regressVer.slope)
     return angle
 
 
