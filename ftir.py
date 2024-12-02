@@ -396,8 +396,8 @@ def extractInterCenterDistance(filename):
 
 def exportForCorrect(pos, inter, filename):
     """
-    Export a list of interferogram in a h5 file, with time axis in picosecond
-    The output file can be open in the software Correct@TDS
+    Export a list of interferogram in a h5 file, with time axis in picosecond.
+    The output file can be open in the software Correct@TDS.
 
     Parameters
     ----------
