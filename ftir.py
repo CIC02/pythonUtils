@@ -198,14 +198,14 @@ def interArrayToSpectra2D(posIn,opticSig,discardPhase = True, discardDC = True, 
     pos = np.mean(posIn,axis=(0,1,2))
     #step = (pos[-1]-pos[0])/(len(pos)-1)
     step = (pos[-1]-pos[int(len(pos)/2)])/(len(pos) - int(len(pos)/2)-1) #Average the step over the second half of data (first few points are not always equally spaced)
-    av = np.mean(opticSig,2)
+    av = np.mean(opticSig,2) + 0j
     nbRow = len(av)
     nbCol = len(av[0])
     if discardPhase:
         #av = np.transpose(np.transpose(av) * np.transpose(np.exp(-j*(np.angle(np.mean(av,2))))))
         for row in av:
             for spec in row:
-                spec = spec * np.exp(-j*miscUtil.dataAngle(spec))
+                spec *= np.exp(-j*miscUtil.dataAngle(spec))
     if discardDC:
         av = np.transpose( np.transpose(av) - np.transpose(np.mean(av,2)))
     if windowF != None:
