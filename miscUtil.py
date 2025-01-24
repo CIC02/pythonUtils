@@ -58,6 +58,33 @@ def extractLine(array, x1,y1,x2,y2, width = 0):
     avProfile = np.mean(profile,1)
     return y, avProfile
 
+def circularProfile(array,x0,y0,r,Theta):
+    """
+    Extract a circular profile from "array"
+
+    Parameters
+    ----------
+    mat : 2D numpy array
+        dataset
+    x0 : float
+        x coordinate of the circle center
+    y0 : float
+        y coordinate of the circle center
+    r : float
+        radius of the circle
+    Theta : 1D array of float
+        List of angles to extract from the circle
+
+    Returns
+    -------
+    1D numpy array
+        Circular profile, same size as Theta
+
+    """
+    x = x0 + r*np.cos(Theta)
+    y = y0 + r*np.sin(Theta)
+    return np.asarray(scipy.ndimage.map_coordinates(array, np.vstack((np.flipud(y),x))))
+
 def dataAngle(x, y = None):
     """
     Return the angle of the best fit line for the array of points (x,y), or the array x in the complex plane.
