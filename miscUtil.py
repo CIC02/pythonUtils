@@ -8,7 +8,12 @@ Created on Mon Oct 21 17:17:35 2024
 import numpy as np
 import scipy.ndimage
 import gwyfile
+import cv2
 from imageProcessing import alignImagesORB
+from skimage.restoration import unwrap_phase
+
+pi = np.pi
+j = 1j
 
 def extractLine(array, x1,y1,x2,y2, width = 0):
 	"""
@@ -222,7 +227,6 @@ def getAlignedOpticSig(obj, objRef, harm, backScan = False, interpolationFactor 
 		Interpolation applied to the amplitude images before cross corelation, for subpixel accuracy. Default is 1 (no interpolation)	
 	Returns
 	-------
-	TYPE
 		2D numpy array of complex valued signal from the gwyfile at the specified harmonic.
 
 	"""
@@ -249,6 +253,56 @@ def getAlignedOpticSig(obj, objRef, harm, backScan = False, interpolationFactor 
 	Oraw = getOpticSig(obj, harm, backScan = backScan)
 	Oshifted = np.asarray(scipy.ndimage.shift(Oraw, (-yshift, -xshift)))
 	return Oshifted
+
+def getZmasks(gwyObj, threshold_height = None,  threshold_area = 5):
+	"""
+	Returns a list of masks bazed on the Z channel of gwyObj.
+	Each mask correspond to one connected elevated area on the picture.
+
+
+	Parameters
+	----------
+		
+	gwyObj : gwyfile object
+		Object containing the Z channel
+	threshold_height : float or None (optional)
+		If None, automatically choose a threshold based on Otsu's method (see https://docs.opencv.org/4.x/d7/d4d/tutorial_py_thresholding.html)
+		To specify a threshold manually, this parameter is used on a normalized Z channel, with 0 being the minimu height, and 1 the maximum height.
+	threshold_area : float (optional)
+		Masks with an area smaller than threshold_area will be rejected (default: 5) 
+	Returns
+	-------
+	list of 2D numpy array
+		List of masks for each detected connected structure.
+	"""
+	#Get Z channel
+	channels = gwyfile.util.get_datafields(gwyObj)
+	key = "Z C" if "Z C" in channels else "Z"
+	Zchan = channels[key].data
+	#Convert for openCV
+	Zchan = Zchan - np.min(Zchan)
+	Zchan = Zchan*255/np.max(Zchan)
+	Zchan = np.asarray(Zchan.astype(np.uint8))
+	if threshold_height == None:
+		mode = cv2.THRESH_BINARY + cv2.THRESH_OTSU
+		threshold = 0
+	else:
+		mode = cv2.THRESH_BINARY
+		threshold = 255*threshold_height
+	thresh = cv2.threshold(Zchan, threshold, 255, mode)[1]
+
+	cnts = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+	cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+
+	masks = []
+
+	for c in cnts:
+		mask = np.zeros(np.shape(Zchan), dtype=np.uint8)
+		area = cv2.contourArea(c)
+		if area > threshold_area:
+			cv2.drawContours(mask, [c], -1, color = 1, thickness=cv2.FILLED)
+			masks.append(mask)
+	return masks
 
 
 
@@ -294,3 +348,57 @@ def getOffset(obj):
 	Zchan = channels[key]
 	return Zchan.xoff, Zchan.yoff
 
+def vectorialUnwrap(fx2, fy2, fxfy, mask = None):
+	"""
+	Recover the complex field enhancement component fx and fy from the measurement of fx^2, fy^2 and fx*fy
+	Can be used on a specific part of the image by specifying a mask
+	The phase reconstruction is based on an unwrapping algorithm, and will not work properly on discontinuous structure
+
+	Parameters
+	----------
+	fx2 : 2d numpy array
+		square of the x component
+	fy2 : 2d numpy array
+		square of the y component
+	fxfy : 2d numpy array
+		product of the x and y component
+	mask : 2d numpy array (optionnal)
+		Used to select a specific area to recover in the image. Should only contain 0 and 1.
+	Returns
+	-------
+	fx : 2d numpy array
+		x component, multiplied by "mask" if specified
+	fy : 2d numpy array
+		y component, multiplied by "mask" if specified
+	"""
+	if mask is None:
+		mask = 1
+
+	temp = (4*(np.real(fxfy*np.conjugate(fx2)) + np.real(fxfy*np.conjugate(fy2)))) / (np.abs(fy2)**2 - np.abs(fx2)**2)
+	angleProj= np.arctan(0.5*(-temp+np.sqrt(temp**2+4)))
+	angleProj = unwrap_phase(np.angle(np.exp(j*angleProj*4)))/4
+
+	a = np.cos(angleProj)
+	b = np.sin(angleProj)
+	c = np.cos(angleProj + pi/2)
+	d = np.sin(angleProj + pi/2)
+	f2Proj1 = a**2*fx2 + 2*a*b*fxfy + b**2*fy2
+	f2Proj2 = c**2*fx2 + 2*c*d*fxfy + d**2*fy2
+
+	fProj1Amp = np.sqrt(np.abs(f2Proj1))
+	fProj1Phase = unwrap_phase(np.angle(f2Proj1))/2
+	fProj1 = fProj1Amp*np.exp(j*fProj1Phase) * mask
+
+	fProj2Amp = np.sqrt(np.abs(f2Proj2))
+	fProj2Phase = unwrap_phase(np.angle(f2Proj2))/2
+	fProj2 = fProj2Amp*np.exp(j*fProj2Phase) * mask
+
+	error1 = np.mean(np.abs(((d*fProj1 - b*fProj2) / (a*d-b*c))**2 - fx2 * mask)**2)
+	error2 = np.mean(np.abs(((d*fProj1 + b*fProj2) / (a*d-b*c))**2 - fx2 * mask)**2)
+
+	if(error1 > error2):
+		fProj2 *= -1
+
+	fx = (d*fProj1 - b*fProj2) / (a*d-b*c)
+	fy = (c*fProj1 - a*fProj2) / (b*c-a*d)
+	return fx,fy
