@@ -255,7 +255,7 @@ def getAlignedOpticSig(obj, objRef, harm, backScan = False, interpolationFactor 
 
 def getZmasks(gwyObj, threshold_height = None,  threshold_area = 5):
 	"""
-	Returns a list of masks bazed on the Z channel of gwyObj.
+	Returns a list of masks based on the Z channel of gwyObj.
 	Each mask correspond to one connected elevated area on the picture.
 
 

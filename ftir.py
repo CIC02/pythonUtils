@@ -243,19 +243,7 @@ def loadInterferograms2D(filename, harm):
         Optical signal
 
     """
-    # regex = re.compile(r".*Interferometer.*\t(?P<center>(\d+\.\d+))\t(?P<distance>(\d+\.\d+)).*")
-    # distance = 0
-    # center = 0
-        # f.seek(0)
-        # line = f.readline()
-        # while line != '':
-        #     parts = re.match(regex,line)
-        #     if parts != None:
-        #         distance = float(parts.groupdict()["distance"])*1e-6
-        #         center = float(parts.groupdict()["center"])*1e-6
-        #         break
-        #     line = f.readline()
-    data = pd.read_csv(filename, comment = "#", delimiter='\t')
+    data = pd.read_csv(filename, comment = "#", delimiter='\t', index_col=False)
     data = data.to_dict(orient="list")
     data = {x.replace(' ', ''): v for x, v in data.items()}
     nbRun = int(data['Run'][-1]) + 1
@@ -273,6 +261,30 @@ def loadInterferograms2D(filename, harm):
     pos = pos.reshape([nbRow, nbCol, nbRun, runLength])
     #pos = depth * distance/len(depth[0,0,0]) + center-distance/2   
     return pos, opticSig
+
+def loadFullInterferogramData(filename):
+    data = pd.read_csv(filename, comment = "#", delimiter='\t')
+    data = data.to_dict(orient="list")
+    data = {x.replace(' ', ''): v for x, v in data.items()} #Remove spaces in the keys
+    nbRun = int(data['Run'][-1]) + 1
+    nbRow = int(data['Row'][-1]) + 1
+    nbCol = int(data['Column'][-1]) + 1
+    runLength = int(data['Depth'][-1]) + 1
+    out = {}
+    for key, array in data.items():
+        print(key)
+        if key == 'Run' or key == 'Row' or key == 'Column' or key =='Depth' or key.startswith('Unnamed'):
+            pass
+        elif key[-1] == 'P' and key[:-1]+'A' in data:
+            pass
+        elif key[-1] == 'A' and key[:-1]+'P' in data:
+            amp = np.reshape(array,[nbRow, nbCol, nbRun, runLength])
+            phase = np.reshape(data[key[:-1]+'P'],[nbRow, nbCol, nbRun, runLength])
+            out[key[:-1]] = amp*np.exp(1j*phase)
+        else:
+            out[key] = np.reshape(array,[nbRow, nbCol, nbRun, runLength])
+    return out
+
 
 
 
