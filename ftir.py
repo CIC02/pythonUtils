@@ -456,11 +456,16 @@ def loadFullInterferogramData(filename):
     data = {x.replace(' ', ''): v for x, v in data.items()} #Remove spaces in the keys
     nbRun = int(data['Run'][-1]) + 1
     nbRow = int(data['Row'][-1]) + 1
-    nbCol = int(data['Column'][-1]) + 1
     runLength = int(data['Depth'][-1]) + 1
+    if 'Column' in data:
+        nbCol = int(data['Column'][-1]) + 1
+    elif 'Delay' in data:
+        nbCol = int(len(data['Delay'])/(nbRun*nbRow*runLength))
+    else:
+        raise Exception("Unknown file format")
     out = {}
     for key, array in data.items():
-        if key == 'Run' or key == 'Row' or key == 'Column' or key =='Depth' or key.startswith('Unnamed'):
+        if key == 'Run' or key == 'Row' or key == 'Column' or key == 'Delay' or key =='Depth' or key.startswith('Unnamed'):
             pass
         elif key[-1] == 'P' and key[:-1]+'A' in data:
             pass
@@ -511,9 +516,9 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
     step = (pos[int(3*len(pos)/4)]-pos[int(len(pos)/4)])/(len(pos) - int(len(pos)/2)) #Average the step between first and third quarter of data
 
     if discardPhase:
-        wavenumber = np.linspace(0,0.25e-2/step,(int(nbPoint/2))+1)
+        wavenumber = np.linspace(0,0.25e-2/step,(int(nbPoint*paddingFactor/2))+1)
     else:
-        wavenumber = np.linspace(0,0.5e-2/step,nbPoint)
+        wavenumber = np.linspace(0,0.5e-2/step,nbPoint*paddingFactor)
     wavenumber = np.repeat(wavenumber[np.newaxis,:], nbRun, axis = 0)
     wavenumber = np.repeat(wavenumber[np.newaxis,:,:], nbCol, axis = 0)
     wavenumber = np.repeat(wavenumber[np.newaxis,:,:,:], nbRow, axis = 0)
@@ -543,3 +548,41 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
             out[key] = spectrum
     
     return out
+
+
+
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+    from scipy import signal
+
+    interData = loadFullInterferogramData("example/examplePumpProbe.txt")
+
+    plt.figure()
+    plt.plot(interData["M"][0,0,0], np.abs(interData["O3"][0,0,0]))
+    plt.plot(interData["M"][0,0,0], np.abs(interData["A3"][0,0,0]))
+    plt.xlabel("Mirror position")
+    plt.ylabel("Amplitude")
+
+
+    #Create the window function if necessary
+    windowF = lambda M: signal.windows.tukey(M, 0.3)  
+
+    spectra = interferogramsToSpectra(interData, windowF=windowF, paddingFactor=4, shiftMaxToZero=True)
+
+    plt.figure()
+    plt.plot(spectra["Wavenumber"][0,0,0], np.abs(spectra["O3"][0,0,0]))
+    plt.plot(spectra["Wavenumber"][0,0,0], np.abs(spectra["A3"][0,0,0]))
+    plt.xlabel("Wavenumber (cm-1)")
+    plt.ylabel("Amplitude")
+
+    plt.figure()
+    plt.plot(spectra["Wavenumber"][0,0,0], np.angle(spectra["O3"][0,0,0]))
+    plt.plot(spectra["Wavenumber"][0,0,0], np.angle(spectra["A3"][0,0,0]))
+    plt.xlabel("Wavenumber (cm-1)")
+    plt.ylabel("Phase")
+
+    plt.show()
+
+
+    
