@@ -508,7 +508,9 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
     nbCol = np.shape(inter['M'])[1]
     nbRun = np.shape(inter['M'])[2]
     nbPoint = np.shape(inter['M'])[3]
-    step = (pos[int(3*len(pos)/4)]-pos[int(len(pos)/4)])/(len(pos) - int(len(pos)/2)-1) #Average the step between first and third quarter of data
+    step = (pos[int(3*len(pos)/4)]-pos[int(len(pos)/4)])/(len(pos) - int(len(pos)/2)) #Average the step between first and third quarter of data
+    print(step)
+    print(pos[20]-pos[19])
     if discardPhase:
         wavenumber = np.linspace(0,0.25e-2/step,(int(nbPoint/2))+1)
     else:
