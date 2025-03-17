@@ -262,30 +262,6 @@ def loadInterferograms2D(filename, harm):
     #pos = depth * distance/len(depth[0,0,0]) + center-distance/2   
     return pos, opticSig
 
-def loadFullInterferogramData(filename):
-    data = pd.read_csv(filename, comment = "#", delimiter='\t')
-    data = data.to_dict(orient="list")
-    data = {x.replace(' ', ''): v for x, v in data.items()} #Remove spaces in the keys
-    nbRun = int(data['Run'][-1]) + 1
-    nbRow = int(data['Row'][-1]) + 1
-    nbCol = int(data['Column'][-1]) + 1
-    runLength = int(data['Depth'][-1]) + 1
-    out = {}
-    for key, array in data.items():
-        print(key)
-        if key == 'Run' or key == 'Row' or key == 'Column' or key =='Depth' or key.startswith('Unnamed'):
-            pass
-        elif key[-1] == 'P' and key[:-1]+'A' in data:
-            pass
-        elif key[-1] == 'A' and key[:-1]+'P' in data:
-            amp = np.reshape(array,[nbRow, nbCol, nbRun, runLength])
-            phase = np.reshape(data[key[:-1]+'P'],[nbRow, nbCol, nbRun, runLength])
-            out[key[:-1]] = amp*np.exp(1j*phase)
-        else:
-            out[key] = np.reshape(array,[nbRow, nbCol, nbRun, runLength])
-    return out
-
-
 
 
 def loadSpectraFromInter2D(filename, harm, **kwargs):
@@ -455,3 +431,114 @@ def importFromCorrect(filename):
         t = np.array(f["timeaxis"])        
         inter = np.asarray([np.array(f[str(trace)]) for trace in range(len(f)-1)], dtype=np.complex128)
     return t*1e-12*c/2, inter
+
+
+
+
+def loadFullInterferogramData(filename):
+    """
+    Load all channels from a FTIR measurement in a dictionnary of 4D arrays
+    Amplitude and phase channels are combined in complex channels
+
+
+    Parameters
+    ----------
+    filename : str
+        Path of the file
+
+    Returns
+    -------
+    Dictionnary of 4D numpy array
+
+    """
+    data = pd.read_csv(filename, comment = "#", delimiter='\t')
+    data = data.to_dict(orient="list")
+    data = {x.replace(' ', ''): v for x, v in data.items()} #Remove spaces in the keys
+    nbRun = int(data['Run'][-1]) + 1
+    nbRow = int(data['Row'][-1]) + 1
+    nbCol = int(data['Column'][-1]) + 1
+    runLength = int(data['Depth'][-1]) + 1
+    out = {}
+    for key, array in data.items():
+        if key == 'Run' or key == 'Row' or key == 'Column' or key =='Depth' or key.startswith('Unnamed'):
+            pass
+        elif key[-1] == 'P' and key[:-1]+'A' in data:
+            pass
+        elif key[-1] == 'A' and key[:-1]+'P' in data:
+            amp = np.reshape(array,[nbRow, nbCol, nbRun, runLength])
+            phase = np.reshape(data[key[:-1]+'P'],[nbRow, nbCol, nbRun, runLength])
+            out[key[:-1]] = amp*np.exp(1j*phase)
+        else:
+            out[key] = np.reshape(array,[nbRow, nbCol, nbRun, runLength])
+    return out
+
+def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF = None, paddingFactor = 1, shiftMaxToZero = False):
+    """
+    Convert a dictionnary of interferogram data in a dictionnary of spectra
+    Channel "M" is interpreted as mirror position
+    Channel "Z" is ignored
+    All other channels are fourier transformed
+
+    Parameters
+    ----------
+    inter:  Dictionnary of 4d arrays
+        interferogram data
+    discardPhase : bool, optional
+        If True, substract the average phase of the interferogram data, and perform a rfft, if False, perform a regular fft on the complex data. The default is True.
+    discardDC : bool, optional
+        if True, remove the DC component. The default is True.
+    windowF : function(int), optional
+        Windowing function, taking a integer window size as parameter. The default is None.
+    paddingFactor : int, optional
+        The data is zero padded to its original size multiplied by paddingFactor. The default is 1.
+    shiftMaxToZero : bool, optional
+        If True, the maximum value of the interferogram is shifted to position 0, to (mostly) cancel the phase slope. The default is False.
+
+    Returns
+    -------
+    Dictionary of 4D spectra:
+        Contains one channel for every channel in the input dictionary, except for "M" and "Z"
+        Plus an additionl "Wavenumber" channel
+
+    """
+    out = {}
+
+    pos = np.mean(inter['M'],axis=(0,1,2))
+    nbRow = np.shape(inter['M'])[0]
+    nbCol = np.shape(inter['M'])[1]
+    nbRun = np.shape(inter['M'])[2]
+    nbPoint = np.shape(inter['M'])[3]
+    step = (pos[int(3*len(pos)/4)]-pos[int(len(pos)/4)])/(len(pos) - int(len(pos)/2)-1) #Average the step between first and third quarter of data
+    if discardPhase:
+        wavenumber = np.linspace(0,0.25e-2/step,(int(nbPoint/2))+1)
+    else:
+        wavenumber = np.linspace(0,0.5e-2/step,nbPoint)
+    wavenumber = np.repeat(wavenumber[np.newaxis,:], nbRun, axis = 0)
+    wavenumber = np.repeat(wavenumber[np.newaxis,:,:], nbCol, axis = 0)
+    wavenumber = np.repeat(wavenumber[np.newaxis,:,:,:], nbRow, axis = 0)
+    out["Wavenumber"] = wavenumber
+    for key, array in inter.items():
+        if key != "Z" and key != "M":
+            processedInter = array
+            if discardPhase:
+                for row in array:
+                    for col in row:
+                        for spec in col:
+                            spec *= np.exp(-j*miscUtil.dataAngle(spec))
+            if discardDC:
+                processedInter = np.transpose( np.transpose(processedInter) - np.transpose(np.mean(processedInter,3)))
+            if windowF != None:
+                window = windowF(nbPoint)
+            else:
+                window = 1
+            processedInter = processedInter*window
+            processedInter = np.concatenate((processedInter,np.zeros((nbRow, nbCol, nbRun,  nbPoint*(paddingFactor-1)))),3)
+            if shiftMaxToZero:
+                processedInter = np.roll(processedInter, -np.argmax(np.abs(processedInter)),3)
+            if discardPhase:
+                spectrum = np.fft.rfft(np.real(processedInter))
+            else:
+                spectrum = np.fft.fft(processedInter)
+            out[key] = spectrum
+    
+    return out
