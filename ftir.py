@@ -509,8 +509,7 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
     nbRun = np.shape(inter['M'])[2]
     nbPoint = np.shape(inter['M'])[3]
     step = (pos[int(3*len(pos)/4)]-pos[int(len(pos)/4)])/(len(pos) - int(len(pos)/2)) #Average the step between first and third quarter of data
-    print(step)
-    print(pos[20]-pos[19])
+
     if discardPhase:
         wavenumber = np.linspace(0,0.25e-2/step,(int(nbPoint/2))+1)
     else:
@@ -523,10 +522,10 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
         if key != "Z" and key != "M":
             processedInter = array
             if discardPhase:
-                for row in array:
+                for row in processedInter:
                     for col in row:
-                        for spec in col:
-                            spec *= np.exp(-j*miscUtil.dataAngle(spec))
+                        for trace in col:
+                            trace *= np.exp(-j*miscUtil.dataAngle(trace))
             if discardDC:
                 processedInter = np.transpose( np.transpose(processedInter) - np.transpose(np.mean(processedInter,3)))
             if windowF != None:
