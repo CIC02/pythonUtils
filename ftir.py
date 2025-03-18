@@ -465,7 +465,7 @@ def loadFullInterferogramData(filename):
         raise Exception("Unknown file format")
     out = {}
     for key, array in data.items():
-        if key == 'Run' or key == 'Row' or key == 'Column' or key == 'Delay' or key =='Depth' or key.startswith('Unnamed'):
+        if key == 'Run' or key == 'Row' or key == 'Column'  or key =='Depth' or key.startswith('Unnamed'):
             pass
         elif key[-1] == 'P' and key[:-1]+'A' in data:
             pass
@@ -523,8 +523,13 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
     wavenumber = np.repeat(wavenumber[np.newaxis,:,:], nbCol, axis = 0)
     wavenumber = np.repeat(wavenumber[np.newaxis,:,:,:], nbRow, axis = 0)
     out["Wavenumber"] = wavenumber
+    
+    delay=inter["Delay"][0,:,0,0]
+
+    out["Delay"] = delay
+    
     for key, array in inter.items():
-        if key != "Z" and key != "M":
+        if key != "Z" and key != "M" and key != "Delay" :
             processedInter = array
             if discardPhase:
                 for row in processedInter:
