@@ -525,7 +525,8 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
     out["Wavenumber"] = wavenumber
     
     if 'Delay' in inter:
-        delay=inter["Delay"][0,:,0,0]
+        delay=inter["Delay"][:,:,:,0]
+        delay = np.repeat(delay[:,:,:,np.newaxis], wavenumber.shape[-1], axis = 3)
         out["Delay"] = delay
         
     
