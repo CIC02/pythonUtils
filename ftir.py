@@ -449,7 +449,7 @@ def loadFullInterferogramData(filename,resave=False):
 
     Returns
     -------
-    Dictionnary of 4D numpy array
+    Dictionnary of 4D numpy array  [Row, Column/Delay, Run, Time]
 
     """
     
@@ -503,8 +503,8 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
 
     Parameters
     ----------
-    inter:  Dictionnary of 4d arrays
-        interferogram data
+    inter:  Dictionnary of 4d arrays [Row, Column/Delay, Run, Frequency]
+        interferogram data 
     discardPhase : bool, optional
         If True, substract the average phase of the interferogram data, and perform a rfft, if False, perform a regular fft on the complex data. The default is True.
     discardDC : bool, optional
