@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import miscUtil
 import h5py
+import os
 
 j = 1j
 c = 299792458
@@ -435,7 +436,7 @@ def importFromCorrect(filename):
 
 
 
-def loadFullInterferogramData(filename):
+def loadFullInterferogramData(filename,resave=False):
     """
     Load all channels from a FTIR measurement in a dictionnary of 4D arrays
     Amplitude and phase channels are combined in complex channels
@@ -451,30 +452,46 @@ def loadFullInterferogramData(filename):
     Dictionnary of 4D numpy array
 
     """
-    data = pd.read_csv(filename, comment = "#", delimiter='\t')
-    data = data.to_dict(orient="list")
-    data = {x.replace(' ', ''): v for x, v in data.items()} #Remove spaces in the keys
-    nbRun = int(data['Run'][-1]) + 1
-    nbRow = int(data['Row'][-1]) + 1
-    runLength = int(data['Depth'][-1]) + 1
-    if 'Column' in data:
-        nbCol = int(data['Column'][-1]) + 1
-    elif 'Delay' in data:
-        nbCol = int(len(data['Delay'])/(nbRun*nbRow*runLength))
-    else:
-        raise Exception("Unknown file format")
+    
     out = {}
-    for key, array in data.items():
-        if key == 'Run' or key == 'Row' or key == 'Column'  or key =='Depth' or key.startswith('Unnamed'):
-            pass
-        elif key[-1] == 'P' and key[:-1]+'A' in data:
-            pass
-        elif key[-1] == 'A' and key[:-1]+'P' in data:
-            amp = np.reshape(array,[nbRow, nbCol, nbRun, runLength])
-            phase = np.reshape(data[key[:-1]+'P'],[nbRow, nbCol, nbRun, runLength])
-            out[key[:-1]] = amp*np.exp(1j*phase)
+    
+    h5_path = os.path.splitext(filename)[0]+ ".h5"
+    if os.path.exists(h5_path) and not(resave):
+        with h5py.File(h5_path, 'r') as hdf:
+            # Iterate over each dataset in the file
+            for name in hdf.keys():
+                # Load the data for each dataset into the dictionary
+                out[name] = np.array(hdf[name])
+        print('Loaded from h5')
+    else:  
+
+        data = pd.read_csv(filename, comment = "#", delimiter='\t')
+        data = data.to_dict(orient="list")
+        data = {x.replace(' ', ''): v for x, v in data.items()} #Remove spaces in the keys
+        nbRun = int(data['Run'][-1]) + 1
+        nbRow = int(data['Row'][-1]) + 1
+        runLength = int(data['Depth'][-1]) + 1
+        if 'Column' in data:
+            nbCol = int(data['Column'][-1]) + 1
+        elif 'Delay' in data:
+            nbCol = int(len(data['Delay'])/(nbRun*nbRow*runLength))
         else:
-            out[key] = np.reshape(array,[nbRow, nbCol, nbRun, runLength])
+            raise Exception("Unknown file format")
+       
+        for key, array in data.items():
+            if key == 'Run' or key == 'Row' or key == 'Column'  or key =='Depth' or key.startswith('Unnamed'):
+                pass
+            elif key[-1] == 'P' and key[:-1]+'A' in data:
+                pass
+            elif key[-1] == 'A' and key[:-1]+'P' in data:
+                amp = np.reshape(array,[nbRow, nbCol, nbRun, runLength])
+                phase = np.reshape(data[key[:-1]+'P'],[nbRow, nbCol, nbRun, runLength])
+                out[key[:-1]] = amp*np.exp(1j*phase)
+            else:
+                out[key] = np.reshape(array,[nbRow, nbCol, nbRun, runLength])
+                
+        SaveDataH5(h5_path,out)
+            
     return out
 
 def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF = None, paddingFactor = 1, shiftMaxToZero = False):
@@ -556,6 +573,29 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
     
     return out
 
+
+def SaveDataH5(filename,data):  
+    with h5py.File(filename, 'w') as hdf:
+        for key, value in data.items():
+            # Create a dataset for each array in the dictionary
+            hdf.create_dataset(key, data=value)
+    print('Saved to h5')
+
+
+def BalanceDetectionCorrection(data):
+    max_index = 0
+    for key in data.keys():
+        if key.startswith('O'):
+            index = int(key[1:])  # Convert the number part of the key to an integer
+            if index > max_index:
+                max_index = index
+    for n in range(max_index):  # Loop over the harmonics
+        a=data[f"O{n}"]
+        b=data[f"A{n}"]
+        k=np.sum((a)*np.conj(b),-1,keepdims=True)/np.sum(np.abs(b)**2,-1,keepdims=True)
+        data[f"O{n}"] = a-k*b
+    return data
+    
 
 
 
