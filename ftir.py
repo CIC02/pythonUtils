@@ -524,9 +524,10 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
     wavenumber = np.repeat(wavenumber[np.newaxis,:,:,:], nbRow, axis = 0)
     out["Wavenumber"] = wavenumber
     
-    delay=inter["Delay"][0,:,0,0]
-
-    out["Delay"] = delay
+    if 'Delay' in inter:
+        delay=inter["Delay"][0,:,0,0]
+        out["Delay"] = delay
+        
     
     for key, array in inter.items():
         if key != "Z" and key != "M" and key != "Delay" :
