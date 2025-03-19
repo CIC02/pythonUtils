@@ -578,6 +578,32 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
     return out
 
 
+def SNR(SpectralData):
+    """
+    Calculate SNR of spectral data. S as maximum spectral intensity. N as mean high frequency intensity.
+    
+
+    Parameters
+    ----------
+    SpectralData : dictionary of multidim arrays
+        
+
+    Returns
+    -------
+    SNR : dictionary of multidim array 
+
+    """
+    
+    SNR={}
+    for key in SpectralData.keys():
+        if key.startswith('O'):
+            SpectraMag=np.abs(SpectralData[key])
+            S=np.max(SpectraMag,-1) #Signal as maximum of the spectra
+            N=np.mean(SpectraMag[...,-100:],-1) #Noise as medium of high frequency components of the spectrum
+            SNR[key]= S/N
+    return SNR
+    
+
 def SaveDataH5(filename,data):  
     """"
     Save data as h5 file.
@@ -629,17 +655,19 @@ def BalanceDetectionCorrection(data):
         if key.startswith('A'):
             flagA=True
 
-                
-    if flagA: # check existance of Channel A
-        for n in range(max_index):  # Loop over the harmonics
-            a=data[f"O{n}"]
-            b=data[f"A{n}"]
-            k=np.sum((a)*np.conj(b),-1,keepdims=True)/np.sum(np.abs(b)**2,-1,keepdims=True)
-            data[f"O{n}"] = a-k*b
+    if not flagA: # check existance of Channel A
+        print('No Channel A avaiable')         
+ 
+    for n in range(max_index):  # Loop over the harmonics
+        O=data[f"O{n}"]-np.mean(data[f"O{n}"],-1,keepdims=True)
+        if flagA: # check existance of Channel A
+            A=data[f"A{n}"]-np.mean(data[f"A{n}"],-1,keepdims=True)
+            k=np.sum( O*np.conj(A), -1, keepdims=True)/np.sum( np.abs(A)**2, -1, keepdims=True)
+            data[f"O{n}"] = O-k*A
             data[f"k{n}"]=k
-    else:
-        print('No Channel A avaiable')
-        
+        else:
+            data[f"k{n}"]=0*O
+
     return data
     
 
