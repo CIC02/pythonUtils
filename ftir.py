@@ -439,13 +439,17 @@ def importFromCorrect(filename):
 def loadFullInterferogramData(filename,resave=False):
     """
     Load all channels from a FTIR measurement in a dictionnary of 4D arrays
-    Amplitude and phase channels are combined in complex channels
+    Amplitude and phase channels are combined in complex channels.
+    Output dictionary is saved as .h5
 
 
     Parameters
     ----------
     filename : str
-        Path of the file
+        Path of the file. .txt
+    resave: bool, optional
+        If True read .txt file and resaved it to h5.
+        
 
     Returns
     -------
@@ -575,6 +579,21 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
 
 
 def SaveDataH5(filename,data):  
+    """"
+    Save data as h5 file.
+    
+    Parameters
+    ----------
+    filename: str
+        filepath to save 
+    data:  Dictionnary of 4D numpy array 
+        Interferogram data. It needs to contain channels O and A.
+    
+    
+    """
+    if os.path.splitext(filename)[1]!='.h5':
+        filename=os.path.splitext(filename)[0]+'.h5'
+        
     with h5py.File(filename, 'w') as hdf:
         for key, value in data.items():
             # Create a dataset for each array in the dictionary
@@ -583,17 +602,44 @@ def SaveDataH5(filename,data):
 
 
 def BalanceDetectionCorrection(data):
+    
+    """"
+    Correct optical signals O{n} with A{n} in balanced detection scheme.
+    It find the scaling factork and add it to the dictionary.
+    
+    Parameters
+    ----------
+    data: interferogram data. It needs to contain channels O and A.
+    
+    
+    Returns
+    -------
+    data:interferogram data. O{n} are replaced. k{n} are added.
+    
+    """
     max_index = 0
+    flagA=False
+    
+    # Find maximum hamonic avaiable 
     for key in data.keys():
         if key.startswith('O'):
-            index = int(key[1:])  # Convert the number part of the key to an integer
+            index = int(key[1:])  
             if index > max_index:
                 max_index = index
-    for n in range(max_index):  # Loop over the harmonics
-        a=data[f"O{n}"]
-        b=data[f"A{n}"]
-        k=np.sum((a)*np.conj(b),-1,keepdims=True)/np.sum(np.abs(b)**2,-1,keepdims=True)
-        data[f"O{n}"] = a-k*b
+        if key.startswith('A'):
+            flagA=True
+
+                
+    if flagA: # check existance of Channel A
+        for n in range(max_index):  # Loop over the harmonics
+            a=data[f"O{n}"]
+            b=data[f"A{n}"]
+            k=np.sum((a)*np.conj(b),-1,keepdims=True)/np.sum(np.abs(b)**2,-1,keepdims=True)
+            data[f"O{n}"] = a-k*b
+            data[f"k{n}"]=k
+    else:
+        print('No Channel A avaiable')
+        
     return data
     
 
