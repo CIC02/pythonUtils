@@ -503,6 +503,7 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
     Convert a dictionnary of interferogram data in a dictionnary of spectra
     Channel "M" is interpreted as mirror position
     Channel "Z" is ignored
+    Channel "Delay" is reshaped to match the other channel dimensions
     All other channels are fourier transformed
 
     Parameters
