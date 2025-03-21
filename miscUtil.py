@@ -9,6 +9,8 @@ import numpy as np
 import scipy.ndimage
 import gwyfile
 import cv2
+
+
 from imageProcessing import alignImagesORB
 
 pi = np.pi
@@ -346,4 +348,48 @@ def getOffset(obj):
 	key = "Z C" if "Z C" in channels else "Z"
 	Zchan = channels[key]
 	return Zchan.xoff, Zchan.yoff
+
+
+def getInterferogramPaths(directory_path):
+    """
+    Return all the filepath corresponding to Interferograms files (.txt)
+
+    Parameters
+    ----------
+    directory_path : string 
+        folder path in which it looks for files.
+
+    Returns
+    -------
+    file: list .
+        list of all the filepath containing '*interferogram*.txt'  
+    """
+
+    from pathlib import Path
+    directory_path = Path(directory_path)
+    # List to hold all matching files
+    matching_files_txt = []
+    
+    # Walk through the directory and its subdirectories
+    for filepath in directory_path.rglob('*Interferograms*.txt'):
+        # Check if it's a file (although `rglob` should only yield files in this pattern)
+        if filepath.is_file():
+            matching_files_txt.append(filepath)
+       
+    # matching_files_h5 = []     
+    # # Walk through the directory and its subdirectories 
+    # for filepath in directory_path.rglob('*Interferograms*.h5'):
+    #     # Check if it's a file (although `rglob` should only yield files in this pattern)
+    #     if filepath.is_file():
+    #         matching_files_h5.append(filepath)    
+            
+            
+    if len(matching_files_txt) == 0:
+        print("Error: No files found.")
+    else:
+        print(f"Total number of .txt files: {len(matching_files_txt)}")
+
+
+    return matching_files_txt
+
 

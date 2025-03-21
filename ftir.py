@@ -436,7 +436,7 @@ def importFromCorrect(filename):
 
 
 
-def loadFullInterferogramData(filename,resave=False):
+def loadFullInterferogramData(filename,saveInterf=True,reload=False):
     """
     Load all channels from a FTIR measurement in a dictionnary of 4D arrays
     Amplitude and phase channels are combined in complex channels.
@@ -460,15 +460,9 @@ def loadFullInterferogramData(filename,resave=False):
     out = {}
     
     h5_path = os.path.splitext(filename)[0]+ ".h5"
-    if os.path.exists(h5_path) and not(resave):
-        with h5py.File(h5_path, 'r') as hdf:
-            # Iterate over each dataset in the file
-            for name in hdf.keys():
-                # Load the data for each dataset into the dictionary
-                out[name] = np.array(hdf[name])
-        print('Loaded from h5')
+    if os.path.exists(h5_path) and not(reload):
+        out=LoadDataH5(h5_path)
     else:  
-
         data = pd.read_csv(filename, comment = "#", delimiter='\t')
         data = data.to_dict(orient="list")
         data = {x.replace(' ', ''): v for x, v in data.items()} #Remove spaces in the keys
@@ -493,8 +487,8 @@ def loadFullInterferogramData(filename,resave=False):
                 out[key[:-1]] = amp*np.exp(1j*phase)
             else:
                 out[key] = np.reshape(array,[nbRow, nbCol, nbRun, runLength])
-                
-        SaveDataH5(h5_path,out)
+    if saveInterf:        
+            SaveDataH5(h5_path,out)
             
     return out
 
@@ -553,7 +547,7 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
         
     
     for key, array in inter.items():
-        if key != "Z" and key != "M" and key != "Delay" :
+        if key != "Z" and key != "M" and key != "Delay" and not(key.startswith('k')):
             processedInter = array
             if discardPhase:
                 for row in processedInter:
@@ -627,8 +621,36 @@ def SaveDataH5(filename,data):
             hdf.create_dataset(key, data=value)
     print('Saved to h5')
 
+def LoadDataH5(filename):
+    """
+    Load Data from .h5
 
-def BalanceDetectionCorrection(data):
+    Parameters
+    ----------
+    filename: str
+        filepath to save 
+
+    Returns
+    -------
+    out : Dictionnary
+
+    """
+    if os.path.splitext(filename)[1]!='.h5':
+        h5_path=os.path.splitext(filename)[0]+'.h5'
+    else:
+        h5_path=filename
+        
+    out={}
+    with h5py.File(h5_path, 'r') as hdf:
+        # Iterate over each dataset in the file
+        for name in hdf.keys():
+            # Load the data for each dataset into the dictionary
+            out[name] = np.array(hdf[name])
+    print('Loaded from h5')
+    return out
+
+
+def BalanceDetectionCorrection(data_in,k_mean=False):
     
     """"
     Correct optical signals O{n} with A{n} in balanced detection scheme.
@@ -636,19 +658,27 @@ def BalanceDetectionCorrection(data):
     
     Parameters
     ----------
-    data: interferogram data. It needs to contain channels O and A.
+    data_in: dictionary of 4d-array 
+        interferogram data at input. It needs to contain channels O and A.
+    k_mean: bool
+        if True it use the average value of k to correct O
     
     
     Returns
     -------
-    data:interferogram data. O{n} are replaced. k{n} are added.
+    data_out:dictionary of 4d-array
+        interferogram data output. O{n} are replaced. k{n} are added.
     
     """
+    
     max_index = 0
     flagA=False
     
+    data_out={}
+    
     # Find maximum hamonic avaiable 
-    for key in data.keys():
+    for key in data_in.keys():
+        data_out[key]=data_in[key]
         if key.startswith('O'):
             index = int(key[1:])  
             if index > max_index:
@@ -659,17 +689,21 @@ def BalanceDetectionCorrection(data):
     if not flagA: # check existance of Channel A
         print('No Channel A avaiable')         
  
-    for n in range(max_index):  # Loop over the harmonics
-        O=data[f"O{n}"]-np.mean(data[f"O{n}"],-1,keepdims=True)
+    for n in range(max_index+1):  # Loop over the harmonics
+        O=data_in[f"O{n}"]-np.mean(data_in[f"O{n}"],-1,keepdims=True)
         if flagA: # check existance of Channel A
-            A=data[f"A{n}"]-np.mean(data[f"A{n}"],-1,keepdims=True)
+            A=data_out[f"A{n}"]-np.mean(data_out[f"A{n}"],-1,keepdims=True)
             k=np.sum( O*np.conj(A), -1, keepdims=True)/np.sum( np.abs(A)**2, -1, keepdims=True)
-            data[f"O{n}"] = O-k*A
-            data[f"k{n}"]=k
+            data_out[f"k{n}"]=k
+            if k_mean:
+                k1=np.mean(k)
+                data_out[f"O{n}"] = O-k1*A
+            else:   
+                data_out[f"O{n}"] = O-k*A
         else:
-            data[f"k{n}"]=0*O
+            data_out[f"k{n}"]=0*O
 
-    return data
+    return data_out
     
 
 
