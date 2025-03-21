@@ -6,6 +6,8 @@ Created on Tue Mar 18 09:59:43 2025
 @author: edoardolab
 """
 
+import sys
+sys.path.append("..") #Path to the ftir library directory. Replace ".." with the correct path, or removve this line and permanently add the directory to your pythonpath
 import ftir
 
 
@@ -16,7 +18,7 @@ from scipy import signal
 # %% Data Load and Processing
 
 # Load data from .txt
-interData = ftir.loadFullInterferogramData("example/exampleFile_nanoFTIR_Interferograms.txt", saveInterf=False,reload=False)
+interData = ftir.loadFullInterferogramData("./exampleFile_nanoFTIR_Interferograms.txt", saveInterf=False,reload=False)
     # interData: interferogram data [Row, Column, Run, Time]
 
 # correct interferograms with balance detection
@@ -91,5 +93,5 @@ plt.ylabel("Phase")
 plt.xlim(0,2000)
 plt.legend(['O3','O3 with BD correction'])
 
-
+plt.show()
 

@@ -10,6 +10,8 @@ Example code to load, process and plot: Trasnfient Fourier Maps acquired with pu
 
 """
 
+import sys
+sys.path.append("..") #Path to the ftir library directory. Replace ".." with the correct path, or removve this line and permanently add the directory to your pythonpath
 
 
 import ftir
@@ -19,7 +21,7 @@ from scipy import signal
 # %% Data Load and Processing
 
 # Load data from .txt
-interData = ftir.loadFullInterferogramData("example/exampleFile_PumpProbe_TransientFourier.txt", saveInterf=False,reload=False)
+interData = ftir.loadFullInterferogramData("./exampleFile_PumpProbe_TransientFourier.txt", saveInterf=False,reload=False)
     # interData: interferogram data [Row, Delay, Run, Time]
 
 # correct interferograms with balance detection
