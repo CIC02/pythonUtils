@@ -669,6 +669,7 @@ def BalanceDetectionCorrection(data_in,k_mean=False):
         interferogram data output. O{n} are replaced. k{n} are added.
     
     """
+    
     max_index = 0
     flagA=False
     
@@ -687,7 +688,7 @@ def BalanceDetectionCorrection(data_in,k_mean=False):
     if not flagA: # check existance of Channel A
         print('No Channel A avaiable')         
  
-    for n in range(max_index):  # Loop over the harmonics
+    for n in range(max_index+1):  # Loop over the harmonics
         O=data_in[f"O{n}"]-np.mean(data_in[f"O{n}"],-1,keepdims=True)
         if flagA: # check existance of Channel A
             A=data_out[f"A{n}"]-np.mean(data_out[f"A{n}"],-1,keepdims=True)
