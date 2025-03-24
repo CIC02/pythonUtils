@@ -14,6 +14,8 @@ import pandas as pd
 import miscUtil
 import h5py
 import os
+import gwyfile
+
 
 j = 1j
 c = 299792458
@@ -453,7 +455,7 @@ def loadFullInterferogramData(filename,saveInterf=True,reload=False):
 
     Returns
     -------
-    Dictionnary of 4D numpy array  [Row, Column/Delay, Run, Time]
+    out: Dictionnary of 4D numpy array  [Row, Column/Delay, Run, Time]
 
     """
     
@@ -491,6 +493,61 @@ def loadFullInterferogramData(filename,saveInterf=True,reload=False):
             SaveDataH5(h5_path,out)
             
     return out
+
+
+def loadGWYdata(filename):
+    """
+    Read  gwy file relative to nanoFTIR line scan. 
+
+    Parameters
+    ----------
+    filename : str
+        filepath of the .gwy file.
+
+    Returns
+    -------
+    out : Dictionnary of 2d array
+        it contain the dictionary of all the channel recorded during a nanoFTIR line scan. 
+        M{n}: Mechanical signal 
+        O{n}: Optical signal 
+        A{n}: Optical signal
+        Z:Topography 
+        M: ??
+
+    """
+    
+    out = {}
+    # load GWY data
+    gwy_path = os.path.splitext(filename)[0]+ ".gwy"
+    if os.path.exists(gwy_path):
+        obj = gwyfile.load(gwy_path)
+        channels = gwyfile.util.get_datafields(obj)
+        for key in channels.keys():
+
+            if key == "Z":
+                wx=channels[key].xreal
+                wy=channels[key].yreal
+            if key[-1] == 'P' and key[:-1]+'A' in channels:
+                pass
+            elif key[-1] == 'A' and key[:-1]+'P' in channels:
+                amp =channels[key].data
+                phase = channels[key[:-1]+'P'].data
+                out[key[:-1]] = amp*np.exp(1j*phase)
+            else:
+                out[key]=channels[key].data
+                
+        print('GWY data loaded')
+        print(f"{wx*1e6} um x {wy*1e6} um")
+
+    else:
+        print('no GWY file')
+        
+    return out
+
+               
+               
+               
+
 
 def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF = None, paddingFactor = 1, shiftMaxToZero = False):
     """

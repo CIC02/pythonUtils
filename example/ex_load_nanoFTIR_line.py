@@ -5,6 +5,7 @@ Created on Fri Mar 21 15:09:54 2025
 
 @author: edoardolab
 """
+
 import sys
 sys.path.append("..") #Path to the ftir library directory. Replace ".." with the correct path, or removve this line and permanently add the directory to your pythonpath
 import ftir
