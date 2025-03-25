@@ -15,7 +15,7 @@ import miscUtil
 import h5py
 import os
 import gwyfile
-
+from scipy.optimize import minimize
 
 j = 1j
 c = 299792458
@@ -761,8 +761,77 @@ def BalanceDetectionCorrection(data_in,k_mean=False):
             data_out[f"k{n}"]=0*O
 
     return data_out
-    
 
+
+def expBalancedCorrection(inter, noiseLims=(4000, 5000), k_mean=False):
+    """
+    Correct optical signals O{n} with A{n} in experimental balanced detection scheme based on minimzing laser noise.
+    Finds scaling factor and stores it in dictionary as k{n}.
+
+    Args:
+        inter (dict): Dictionary of 4D numpy arrays.
+        noiseLims (tuple, optional): Defines laser noise floor region in cm^-1. Defaults to (4000, 5000).
+        visualize_res (bool, optional): Plot all scaling factors. Defaults to False.
+        k_mean (bool, optional): If True, uses average scaling factor to correct interferograms. Defaults to False.
+
+    Returns:
+        dict: Dictionary of 4D numpy arrays with corrected interferograms.
+        Replaces O{n} with corrected interferograms and adds k{n} to the dictionary.
+    """
+    pos = np.mean(inter['M'], axis=(0, 1, 2))
+    dist = (pos[-1]-pos[0])*1e6
+    wavenumber = np.arange(inter['M'].shape[-1])/(2*dist)*1e4
+
+    lolim = np.where(wavenumber > noiseLims[0])[0][0]
+    hilim = np.where(wavenumber > noiseLims[1])[0][0]
+
+    out = {}
+    maxIndex = 0
+    flagA = False
+
+    if sum(wavenumber > 4000) < 100:
+        print('Warning: noiseLims might be too high/not enough points outside of signal region.\n')
+
+    # Find maximum hamonic avaiable
+    for key in inter.keys():
+        out[key] = inter[key]
+        if key.startswith('O'):
+            index = int(key[1:])
+            if index > maxIndex:
+                maxIndex = index
+        if key.startswith('A'):
+            flagA = True
+
+    if not flagA:
+        print('Warning: No auxiliary signals found. Check the input data.\n')
+        return inter
+
+    for n in range(maxIndex+1):
+        opt_ifg = np.copy(inter[f'O{n}'].reshape(-1, inter['M'].shape[-1]))
+        aux_ifg = np.copy(inter[f'A{n}'].reshape(-1, inter['M'].shape[-1]))
+        corr_ifg = np.zeros_like(opt_ifg)
+        tmp_matching_factors = np.zeros((opt_ifg.shape[0]), dtype=complex)
+
+        for i in range(opt_ifg.shape[0]):
+            res = minimize(miscUtil.rms, [1, 0], args=(opt_ifg[i], aux_ifg[i], lolim, hilim),
+                           bounds=[(0.01, 10), (-np.pi, np.pi)])
+
+            matching_factor = res.x[0]*np.exp(1j*res.x[1])
+            tmp_matching_factors[i] = matching_factor
+
+            if not k_mean:
+                corr_ifg[i] = opt_ifg[i]-aux_ifg[i]*matching_factor
+
+            if res.success is False and n > 0:
+                print('Warning: minimization did not converge for some spectra. Check the results carefully.\n')
+
+        out[f'k{n}'] = tmp_matching_factors.reshape(inter['M'].shape[:-1])
+        if k_mean:
+            k = np.mean(tmp_matching_factors)
+            out[f'O{n}'] = (opt_ifg-aux_ifg*k).reshape(inter['M'].shape)
+        else:
+            out[f'O{n}'] = corr_ifg.reshape(inter['M'].shape)
+    return out
 
 
 if __name__ == '__main__':
