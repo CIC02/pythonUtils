@@ -11,7 +11,7 @@ Set of tools to read from Neaspec nano-FTIR data
 import re
 import numpy as np
 import pandas as pd
-import miscUtil
+import miscUtils
 import h5py
 import os
 import gwyfile
@@ -208,7 +208,7 @@ def interArrayToSpectra2D(posIn,opticSig,discardPhase = True, discardDC = True, 
         #av = np.transpose(np.transpose(av) * np.transpose(np.exp(-j*(np.angle(np.mean(av,2))))))
         for row in av:
             for spec in row:
-                spec *= np.exp(-j*miscUtil.dataAngle(spec))
+                spec *= np.exp(-j*miscUtils.dataAngle(spec))
     if discardDC:
         av = np.transpose( np.transpose(av) - np.transpose(np.mean(av,2)))
     if windowF != None:
@@ -610,7 +610,7 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
                 for row in processedInter:
                     for col in row:
                         for trace in col:
-                            trace *= np.exp(-j*miscUtil.dataAngle(trace))
+                            trace *= np.exp(-j*miscUtils.dataAngle(trace))
             if discardDC:
                 processedInter = np.transpose( np.transpose(processedInter) - np.transpose(np.mean(processedInter,3)))
             if windowF != None:
@@ -813,7 +813,7 @@ def expBalancedCorrection(inter, noiseLims=(4000, 5000), k_mean=False):
         tmp_matching_factors = np.zeros((opt_ifg.shape[0]), dtype=complex)
 
         for i in range(opt_ifg.shape[0]):
-            res = minimize(miscUtil.rms, [1, 0], args=(opt_ifg[i], aux_ifg[i], lolim, hilim),
+            res = minimize(miscUtils.rms, [1, 0], args=(opt_ifg[i], aux_ifg[i], lolim, hilim),
                            bounds=[(0.01, 10), (-np.pi, np.pi)])
 
             matching_factor = res.x[0]*np.exp(1j*res.x[1])
