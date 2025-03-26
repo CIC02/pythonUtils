@@ -605,7 +605,7 @@ def interferogramsToSpectra(inter,discardPhase = True, discardDC = True, windowF
     
     for key, array in inter.items():
         if key != "Z" and key != "M" and key != "Delay" and not(key.startswith('k')):
-            processedInter = array
+            processedInter = np.copy(array)
             if discardPhase:
                 for row in processedInter:
                     for col in row:
