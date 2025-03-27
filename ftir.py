@@ -489,7 +489,7 @@ def loadFullInterferogramData(filename,saveInterf=True,reload=False):
                 out[key[:-1]] = amp*np.exp(1j*phase)
             else:
                 out[key] = np.reshape(array,[nbRow, nbCol, nbRun, runLength])
-    if saveInterf:        
+        if saveInterf:
             SaveDataH5(h5_path,out)
             
     return out
@@ -542,7 +542,7 @@ def loadGWYdata(filename):
     else:
         print('no GWY file')
         
-    return out
+    return out, wx,wy
 
                
                

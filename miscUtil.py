@@ -369,27 +369,36 @@ def getInterferogramPaths(directory_path):
     directory_path = Path(directory_path)
     # List to hold all matching files
     matching_files_txt = []
+    matching_files_gwy = []
     
     # Walk through the directory and its subdirectories
     for filepath in directory_path.rglob('*Interferograms*.txt'):
         # Check if it's a file (although `rglob` should only yield files in this pattern)
         if filepath.is_file():
             matching_files_txt.append(filepath)
-       
-    # matching_files_h5 = []     
-    # # Walk through the directory and its subdirectories 
-    # for filepath in directory_path.rglob('*Interferograms*.h5'):
-    #     # Check if it's a file (although `rglob` should only yield files in this pattern)
-    #     if filepath.is_file():
-    #         matching_files_h5.append(filepath)    
-            
+      
+
+    
+    # Walk through the directory and its subdirectories
+    for filepath in directory_path.rglob('*.gwy'):
+        # Check if it's a file (although `rglob` should only yield files in this pattern)
+        if filepath.is_file():
+            matching_files_gwy.append(filepath)
+        
+    matching_files_txt = sorted(matching_files_txt)
+    matching_files_gwy = sorted(matching_files_gwy)         
             
     if len(matching_files_txt) == 0:
-        print("Error: No files found.")
+        print("Error: No *Interferograms.txt files found.")
     else:
         print(f"Total number of .txt files: {len(matching_files_txt)}")
 
+    if len(matching_files_gwy) == 0:
+        print("Error: No *.gwy files found.")
+    else:
+        print(f"Total number of .gwy files: {len(matching_files_gwy)}")
 
-    return matching_files_txt
+
+    return matching_files_txt, matching_files_gwy
 
 
