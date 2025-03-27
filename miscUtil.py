@@ -402,3 +402,11 @@ def getInterferogramPaths(directory_path):
     return matching_files_txt, matching_files_gwy
 
 
+def rms(params, opt_ifg, aux_ifg, lolim, hilim):
+    from scipy.fftpack import fft
+    """RMS of noise floor. Have to define noise floor carefully. Quantity to be minimized in expBalancedCorrection.
+    """
+    corr_ifg = opt_ifg-params[0]*aux_ifg*np.exp(1j*params[1])
+    corr_fft = fft(corr_ifg)
+    return np.sqrt(np.mean(np.abs(corr_fft[..., lolim:hilim])**2))
+
